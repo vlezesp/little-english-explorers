@@ -13,7 +13,30 @@ const topics=[
 {id:'body',title:'My body',es:'Partes del cuerpo',icon:'🖐️',items:[['head','cabeza','🙂'],['eyes','ojos','👀'],['ears','orejas','👂'],['nose','nariz','👃'],['mouth','boca','👄'],['hand','mano','✋'],['arm','brazo','💪'],['leg','pierna','🦵'],['foot','pie','🦶']]},
 {id:'food',title:'Food',es:'Comida',icon:'🍎',items:[['apple','manzana','🍎'],['banana','plátano','🍌'],['bread','pan','🍞'],['milk','leche','🥛'],['water','agua','💧'],['cheese','queso','🧀'],['egg','huevo','🥚'],['rice','arroz','🍚'],['carrot','zanahoria','🥕'],['orange','naranja (fruta)','🍊']]}
 ];
-let active=null,questions=[],idx=0,correct=0,earned=0,locked=false;const $=id=>document.getElementById(id);const shuffle=a=>[...a].sort(()=>Math.random()-.5);function view(id){['home','learn','quiz','result'].forEach(x=>$(x).classList.toggle('hidden',x!==id));window.scrollTo({top:0,behavior:'instant'})}function goHome(){view('home')}function openTopic(id){active=topics.find(t=>t.id===id);showLearn()}function speak(s){if(!('speechSynthesis' in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(s);u.lang='en-GB';u.rate=.78;window.speechSynthesis.speak(u)}function showLearn(){if(!active)return; $('learnTitle').textContent=active.title+' · '+active.es;$('cards').innerHTML='';active.items.forEach(([en,es,vis])=>{const el=document.createElement('div');el.className='flash';const visual=document.createElement('div');visual.className='visual';visual.textContent=vis;const w=document.createElement('div');w.className='word';w.textContent=en;const tr=document.createElement('div');tr.className='translation';tr.textContent=es;const b=document.createElement('button');b.className='sound';b.textContent='🔊 Escuchar';b.onclick=()=>speak(en);el.append(visual,w,tr,b);$('cards').append(el)});view('learn')}
+let active=null,questions=[],idx=0,correct=0,earned=0,locked=false;const $=id=>document.getElementById(id);const shuffle=a=>[...a].sort(()=>Math.random()-.5);function view(id){['home','learn','quiz','result'].forEach(x=>$(x).classList.toggle('hidden',x!==id));window.scrollTo({top:0,behavior:'instant'})}function goHome(){view('home')}function openTopic(id){active=topics.find(t=>t.id===id);showLearn()}// Prefer an installed British English voice rather than the device's Spanish default.
+let britishVoice=null;
+function selectBritishVoice(){
+  if(!('speechSynthesis' in window))return;
+  const voices=window.speechSynthesis.getVoices();
+  const british=voices.filter(v=>/^en[-_]GB$/i.test(v.lang));
+  britishVoice=british.find(v=>/google uk english female|serena|kate|daniel|samantha/i.test(v.name)) || british.find(v=>v.localService) || british[0] || null;
+}
+if('speechSynthesis' in window){
+  selectBritishVoice();
+  window.speechSynthesis.addEventListener?.('voiceschanged',selectBritishVoice);
+}
+function speak(s){
+  if(!('speechSynthesis' in window))return;
+  selectBritishVoice();
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(s);
+  u.lang='en-GB';
+  if(britishVoice)u.voice=britishVoice;
+  u.rate=.82;
+  u.pitch=1;
+  u.volume=1;
+  window.speechSynthesis.speak(u);
+}function showLearn(){if(!active)return; $('learnTitle').textContent=active.title+' · '+active.es;$('cards').innerHTML='';active.items.forEach(([en,es,vis])=>{const el=document.createElement('div');el.className='flash';const visual=document.createElement('div');visual.className='visual';visual.textContent=vis;const w=document.createElement('div');w.className='word';w.textContent=en;const tr=document.createElement('div');tr.className='translation';tr.textContent=es;const b=document.createElement('button');b.className='sound';b.textContent='🔊 Escuchar';b.onclick=()=>speak(en);el.append(visual,w,tr,b);$('cards').append(el)});view('learn')}
 function startQuiz(){const pool=shuffle(active.items);questions=pool.slice(0,Math.min(10,pool.length)).map(item=>({item,reverse:Math.random()<.4}));idx=0;correct=0;earned=0;renderQuestion();view('quiz')}
 function renderQuestion(){locked=false;const q=questions[idx],it=q.item; $('counter').textContent='Pregunta '+(idx+1)+' de '+questions.length;$('quizStars').textContent='★ '+earned+' estrellas';$('progressBar').style.width=(idx/questions.length*100)+'%';$('question').textContent=q.reverse?'¿Cómo se dice en español?':'¿Cómo se dice en inglés?';$('detail').textContent=q.reverse?it[0]:it[1];$('feedback').textContent='Elige una respuesta.';$('next').classList.add('hidden');const answer=q.reverse?it[1]:it[0];const others=shuffle(active.items.filter(x=>x!==it).map(x=>q.reverse?x[1]:x[0]).filter((x,i,a)=>a.indexOf(x)===i)).slice(0,3);$('answers').innerHTML='';shuffle([answer,...others]).forEach(choice=>{const b=document.createElement('button');b.className='answer';b.textContent=choice;b.onclick=()=>choose(choice,answer,it);$('answers').append(b)})}
 function choose(choice,answer,it){if(locked)return;locked=true;const ok=choice===answer;if(ok){correct++;earned+=10;$('scoreTop').textContent='★ '+earned+' estrellas';$('feedback').textContent='¡Muy bien! '+it[0]+' = '+it[1]+' · +10 estrellas';speak(it[0])}else{$('feedback').textContent='¡Buen intento! La respuesta es '+answer+'. '+it[0]+' = '+it[1]}[...$('answers').children].forEach(b=>{b.disabled=true;if(b.textContent===answer)b.classList.add('correct');else if(b.textContent===choice)b.classList.add('wrong')});$('next').textContent=idx===questions.length-1?'Ver mi recompensa →':'Siguiente →';$('next').classList.remove('hidden')}
